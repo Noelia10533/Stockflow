@@ -13,3 +13,11 @@ Este comportamiento constituye una condición de carrera, ya que el resultado de
 Se ha utilizado threading.Lock() para proteger el acceso al inventario compartido. El bloqueo se crea una sola vez y es utilizado por todas las cajas.
 
 El uso de Lock evita que varias cajas comprueben simultáneamente el mismo stock y acepten pedidos que no pueden satisfacerse. De esta forma, se mantiene la coherencia del inventario compartido.
+
+## 3. Control de concurrencia con Lock y Semaphore
+
+La utilización de Lock y Semaphore permite controlar el acceso a los recursos compartidos y organizar el procesamiento concurrente de los pedidos. El bloqueo evita condiciones de carrera en el inventario, mientras que el semáforo limita el uso simultáneo de las terminales.
+
+## 4. Gestión de reposiciones del almacén con Condition
+
+La utilización de Condition permite coordinar las cajas y el almacén de forma eficiente, evitando la espera activa. Las cajas permanecen bloqueadas mientras no hay suficientes unidades y vuelven a comprobar el inventario cuando reciben una notificación. De esta forma, se mejora la sincronización entre los hilos y se gestiona correctamente el stock compartido.

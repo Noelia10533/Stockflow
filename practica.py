@@ -2,8 +2,8 @@ from datos import *
 import threading
 
 inventario = STOCK_INICIAL.copy()
-lock_inventario = threading.Lock()
 terminales = threading.Semaphore(NUM_TERMINALES)
+condicion_stock = threading.Condition()
 
 
 def trabajar_caja(numero_caja, pedidos, inventario):
@@ -14,30 +14,45 @@ def trabajar_caja(numero_caja, pedidos, inventario):
         print(f"Caja {numero_caja}: obtiene un terminal para {numero}")
 
         try:
-            with lock_inventario:
-
-                stock = inventario[producto] 
-
-                if stock >= unidades:
+            with condicion_stock:
+                while inventario[producto] < unidades:
                     print(
-                        f"Caja {numero_caja}: {numero} comprueba "
-                        f"{stock} unidades disponibles"
+                        f"Caja {numero_caja}: pedido {numero} "
+                        f"esperando reposición de {producto}"
                     )
-                    inventario[producto] -= unidades
+                    condicion_stock.wait()
 
                     print(
-                        f"Caja {numero_caja}: {numero} vende {unidades} unidades. "
-                        f"Stock restante: {inventario[producto]}"
+                        f"Caja {numero_caja}: vuelve a comprobar "
+                        f"el stock de {producto}"
                     )
 
-                else:
-                    print(
-                        f"Caja {numero_caja}: pedido {numero} rechazado "
-                        f"por falta de stock."
-                    )
+                inventario[producto] -= unidades
+
+                print(
+                    f"Caja {numero_caja}: pedido {numero} procesado. "
+                    f"Vendidas: {unidades} unidades de {producto}. "
+                    f"Stock restante: {inventario[producto]}"
+                )
+
         finally:
             terminales.release() # Libera el terminal aunque ocurra un error
             print(f"Caja {numero_caja}: libera el terminal de {numero}")
+
+def trabajar_almacen(reposiciones, inventario):
+    for reposicion in reposiciones:
+        codigo, producto, unidades = reposicion
+
+        with condicion_stock:
+            inventario[producto] += unidades
+
+            print(
+                f"ALMACÉN: reposición {codigo}: "
+                f"ALMACÉN: repone {unidades} unidades de {producto}. "
+                f"Stock actual: {inventario[producto]}"
+            )
+
+            condicion_stock.notify_all()
 
 hilos = []
 
@@ -49,11 +64,20 @@ for i in range(NUM_CAJAS):
     )
     hilos.append(hilo)
 
+hilo_almacen = threading.Thread(
+    target=trabajar_almacen,
+    args=(REPOSICIONES, inventario)
+)
+
+hilo_almacen.start()
+
 for hilo in hilos:
     hilo.start()
 
 for hilo in hilos:
     hilo.join()
+
+hilo_almacen.join()
 
 print("\n================\nInventario final\n================")
 for producto, cantidad in inventario.items():
