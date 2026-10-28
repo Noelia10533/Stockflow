@@ -3,39 +3,49 @@ import threading
 
 inventario = STOCK_INICIAL.copy()
 lock_inventario = threading.Lock()
+terminales = threading.Semaphore(NUM_TERMINALES)
 
 
-def trabajar_caja(numero_caja, pedido, inventario):
-    numero, producto, unidades = pedido
+def trabajar_caja(numero_caja, pedidos, inventario):
+     for pedido in pedidos:
+        numero, producto, unidades = pedido
 
-    with lock_inventario:
+        terminales.acquire() # Espera hasta que haya una terminal disponible
+        print(f"Caja {numero_caja}: obtiene un terminal para {numero}")
 
-        stock = inventario[producto] 
+        try:
+            with lock_inventario:
 
-        if stock >= unidades:
-            print(
-                f"Caja {numero_caja}: {numero} comprueba "
-                f"{stock} unidades disponibles"
-            )
-            inventario[producto] -= unidades
+                stock = inventario[producto] 
 
-            print(
-                f"Caja {numero_caja}: {numero} vende {unidades} unidades. "
-                f"Stock restante: {inventario[producto]}"
-            )
+                if stock >= unidades:
+                    print(
+                        f"Caja {numero_caja}: {numero} comprueba "
+                        f"{stock} unidades disponibles"
+                    )
+                    inventario[producto] -= unidades
 
-        else:
-            print(
-                f"Caja {numero_caja}: pedido {numero} rechazado "
-                f"por falta de stock."
-            )
+                    print(
+                        f"Caja {numero_caja}: {numero} vende {unidades} unidades. "
+                        f"Stock restante: {inventario[producto]}"
+                    )
+
+                else:
+                    print(
+                        f"Caja {numero_caja}: pedido {numero} rechazado "
+                        f"por falta de stock."
+                    )
+        finally:
+            terminales.release() # Libera el terminal aunque ocurra un error
+            print(f"Caja {numero_caja}: libera el terminal de {numero}")
 
 hilos = []
 
 for i in range(NUM_CAJAS):
+    pedidos_caja = PEDIDOS[i::NUM_CAJAS]
     hilo = threading.Thread(
         target=trabajar_caja,
-        args=(i + 1, PEDIDOS[i], inventario)
+        args=(i + 1, pedidos_caja, inventario)
     )
     hilos.append(hilo)
 
