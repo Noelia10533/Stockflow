@@ -21,3 +21,7 @@ La utilización de Lock y Semaphore permite controlar el acceso a los recursos c
 ## 4. Gestión de reposiciones del almacén con Condition
 
 La utilización de Condition permite coordinar las cajas y el almacén de forma eficiente, evitando la espera activa. Las cajas permanecen bloqueadas mientras no hay suficientes unidades y vuelven a comprobar el inventario cuando reciben una notificación. De esta forma, se mejora la sincronización entre los hilos y se gestiona correctamente el stock compartido.
+
+## 5. Revisión del inventario mediante Barrier
+
+En esta fase se incorporan varios hilos revisores cuya función es comprobar el inventario final una vez que todas las cajas han terminado de procesar los pedidos y el almacén ha realizado las reposiciones.

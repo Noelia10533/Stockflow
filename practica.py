@@ -4,6 +4,7 @@ import threading
 inventario = STOCK_INICIAL.copy()
 terminales = threading.Semaphore(NUM_TERMINALES)
 condicion_stock = threading.Condition()
+barrera = threading.Barrier(NUM_REVISORES)
 
 
 def trabajar_caja(numero_caja, pedidos, inventario):
@@ -54,6 +55,20 @@ def trabajar_almacen(reposiciones, inventario):
 
             condicion_stock.notify_all()
 
+def revisar_catalogo(numero_revisor, productos):
+    print(f"Revisor {numero_revisor}: comienza la revisión")
+
+    for producto, cantidad in productos:
+        print(
+            f"Revisor {numero_revisor}: revisa {producto} - "
+            f"Stock: {cantidad} unidades"
+        )
+
+    print(f"Revisor {numero_revisor}: termina la revisión")
+    barrera.wait()
+
+    print(f'Revisor {numero_revisor}: supera la barrera')
+
 hilos = []
 
 for i in range(NUM_CAJAS):
@@ -69,12 +84,28 @@ hilo_almacen = threading.Thread(
     args=(REPOSICIONES, inventario)
 )
 
+hilos_revisores = []
+productos = list(inventario.items())
+
+for i in range(NUM_REVISORES):
+    hilo_revision = threading.Thread(
+        target=revisar_catalogo,
+        args=(i + 1, productos[1::NUM_REVISORES])
+    )
+    hilos_revisores.append(hilo_revision)
+
 hilo_almacen.start()
 
 for hilo in hilos:
     hilo.start()
 
 for hilo in hilos:
+    hilo.join()
+
+for hilo in hilos_revisores:
+    hilo.start()
+
+for hilo in hilos_revisores:
     hilo.join()
 
 hilo_almacen.join()
