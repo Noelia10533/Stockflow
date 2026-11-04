@@ -56,15 +56,15 @@ def trabajar_caja(numero_caja, pedidos, inventario):
         try:
             stock_restante = inventario.vender_producto(producto, unidades) #Vende el pedido y devuelve el stock que quedó restante
 
-            print(
-                f"Caja {numero_caja}: pedido {numero} procesado. "
-                f"Vendidas: {unidades} unidades de {producto}. "
-                f"Stock restante: {stock_restante}"
-            )
-
         finally:
             terminales.release() # Libera el terminal aunque ocurra un error
             print(f"Caja {numero_caja}: libera el terminal de {numero}")
+
+        print(
+            f"Caja {numero_caja}: pedido {numero} procesado. "
+            f"Vendidas: {unidades} unidades de {producto}. "
+            f"Stock restante: {stock_restante}"
+        )
 
 def trabajar_almacen(reposiciones, inventario):
     for reposicion in reposiciones:
