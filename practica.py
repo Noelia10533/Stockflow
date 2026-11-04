@@ -1,11 +1,50 @@
 from datos import *
 import threading
 
-inventario = STOCK_INICIAL.copy()
-terminales = threading.Semaphore(NUM_TERMINALES)
-condicion_stock = threading.Condition()
-barrera = threading.Barrier(NUM_REVISORES)
+class GestorInventario:
+    def __init__(self, inventario):
+        self.inventario = inventario
+        self.lock = threading.RLock()
+        self.condicion_stock = threading.Condition(self.lock)
 
+    def consultar_stock(self, producto):
+        with self.lock:
+            return self.inventario[producto]
+
+    def comprobar_stock_suficiente(self, producto, unidades):
+        with self.lock:
+            cantidad = self.consultar_stock(producto)
+
+            return cantidad >= unidades #Si la cantidad es mayor a las unidades que se quieren vender, significa que hay stock suficiente
+
+    def vender_producto(self, producto, unidades):
+        with self.condicion_stock: 
+
+            while not self.comprobar_stock_suficiente(producto, unidades):
+                self.condicion_stock.wait() #Espera si no hay stock suficiente
+
+            self.inventario[producto] -= unidades
+
+            return self.inventario[producto] #Devuelve el stock restante
+
+    def reponer_producto(self, producto, unidades):
+        with self.condicion_stock:
+
+            self.inventario[producto] += unidades
+
+            stock_actual = self.inventario[producto]
+
+            self.condicion_stock.notify_all()
+
+            return stock_actual
+
+    def obtener_inventario(self):
+        with self.lock:
+            return list(self.inventario.items())
+
+inventario = GestorInventario(STOCK_INICIAL.copy())
+terminales = threading.Semaphore(NUM_TERMINALES)
+barrera = threading.Barrier(NUM_REVISORES)
 
 def trabajar_caja(numero_caja, pedidos, inventario):
      for pedido in pedidos:
@@ -15,26 +54,13 @@ def trabajar_caja(numero_caja, pedidos, inventario):
         print(f"Caja {numero_caja}: obtiene un terminal para {numero}")
 
         try:
-            with condicion_stock:
-                while inventario[producto] < unidades:
-                    print(
-                        f"Caja {numero_caja}: pedido {numero} "
-                        f"esperando reposición de {producto}"
-                    )
-                    condicion_stock.wait()
+            stock_restante = inventario.vender_producto(producto, unidades) #Vende el pedido y devuelve el stock que quedó restante
 
-                    print(
-                        f"Caja {numero_caja}: vuelve a comprobar "
-                        f"el stock de {producto}"
-                    )
-
-                inventario[producto] -= unidades
-
-                print(
-                    f"Caja {numero_caja}: pedido {numero} procesado. "
-                    f"Vendidas: {unidades} unidades de {producto}. "
-                    f"Stock restante: {inventario[producto]}"
-                )
+            print(
+                f"Caja {numero_caja}: pedido {numero} procesado. "
+                f"Vendidas: {unidades} unidades de {producto}. "
+                f"Stock restante: {stock_restante}"
+            )
 
         finally:
             terminales.release() # Libera el terminal aunque ocurra un error
@@ -44,16 +70,13 @@ def trabajar_almacen(reposiciones, inventario):
     for reposicion in reposiciones:
         codigo, producto, unidades = reposicion
 
-        with condicion_stock:
-            inventario[producto] += unidades
+        stock_actual = inventario.reponer_producto(producto, unidades)
 
-            print(
-                f"ALMACÉN: reposición {codigo}: "
-                f"ALMACÉN: repone {unidades} unidades de {producto}. "
-                f"Stock actual: {inventario[producto]}"
-            )
-
-            condicion_stock.notify_all()
+        print(
+            f"ALMACÉN: reposición {codigo}: "
+            f"ALMACÉN: repone {unidades} unidades de {producto}. "
+            f"Stock actual: {stock_actual}"
+        )
 
 def revisar_catalogo(numero_revisor, productos):
     print(f"Revisor {numero_revisor}: comienza la revisión")
@@ -65,9 +88,10 @@ def revisar_catalogo(numero_revisor, productos):
         )
 
     print(f"Revisor {numero_revisor}: termina la revisión")
-    barrera.wait()
+    barrera.wait() #Espera a que todos los revisores hayan termiando antes de continuar
 
     print(f'Revisor {numero_revisor}: supera la barrera')
+
 
 hilos = []
 
@@ -85,7 +109,7 @@ hilo_almacen = threading.Thread(
 )
 
 hilos_revisores = []
-productos = list(inventario.items())
+productos = inventario.obtener_inventario()
 
 for i in range(NUM_REVISORES):
     hilo_revision = threading.Thread(
@@ -111,5 +135,5 @@ for hilo in hilos_revisores:
 hilo_almacen.join()
 
 print("\n================\nInventario final\n================")
-for producto, cantidad in inventario.items():
+for producto, cantidad in productos:
     print(f"{producto}: {cantidad} unidades")

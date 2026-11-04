@@ -25,3 +25,15 @@ La utilización de Condition permite coordinar las cajas y el almacén de forma 
 ## 5. Revisión del inventario mediante Barrier
 
 En esta fase se incorporan varios hilos revisores cuya función es comprobar el inventario final una vez que todas las cajas han terminado de procesar los pedidos y el almacén ha realizado las reposiciones.
+
+## 6. Refactorización con RLock
+
+En esta fase se reorganiza la gestión del inventario mediante la creación de una clase llamada GestorInventario. Su objetivo es centralizar las operaciones relacionadas con la consulta y modificación del stock, evitando que las diferentes partes del programa accedan directamente al diccionario del inventario.
+
+Se utiliza `threading.RLock()` para proteger las operaciones del inventario.
+
+La principal diferencia respecto a Lock es que RLock permite que un mismo hilo adquiera varias veces el mismo bloqueo sin quedarse bloqueado.
+
+Esto es necesario en nuestro diseño porque el método `comprobar_stock_suficiente()` llama a `consultar_stock()`. Ambos métodos utilizan el mismo bloqueo, por lo que el hilo necesita poder adquirirlo de nuevo mientras todavía lo tiene adquirido.
+
+Con un Lock normal se produciría un bloqueo, ya que el hilo intentaría adquirir un bloqueo que él mismo mantiene ocupado. Con RLock, esta situación se resuelve permitiendo la reentrada del mismo hilo.
